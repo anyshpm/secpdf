@@ -1,0 +1,121 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # 监听版本号tag推送，如v1.0.0
+
+jobs:
+  build_wheels:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install setuptools wheel
+        pip install -r requirements.txt
+
+    - name: Build wheel
+      run: |
+        python setup.py bdist_wheel
+
+    - name: Upload wheels
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheels
+        path: dist/*.whl
+
+  build_executables:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install -r requirements.txt
+
+    - name: Build executable (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        pyinstaller --onefile --name secpdf-windows --console secpdf.py
+        pyinstaller --onefile --name secpdf-gui-windows --windowed secpdf_gui.py
+
+    - name: Build executable (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        pyinstaller --onefile --name secpdf-linux --console secpdf.py
+        pyinstaller --onefile --name secpdf-gui-linux --windowed secpdf_gui.py
+
+    - name: Build executable (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        pyinstaller --onefile --name secpdf-macos --console secpdf.py
+        pyinstaller --onefile --name secpdf-gui-macos --windowed secpdf_gui.py
+
+    - name: Archive artifacts (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: executables-windows
+        path: |
+          dist/secpdf-*.exe
+          dist/secpdf-gui-*.exe
+
+    - name: Archive artifacts (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: executables-linux
+        path: |
+          dist/secpdf-*
+          dist/secpdf-gui-*
+
+    - name: Archive artifacts (macOS)
+      if: matrix.os == 'macos-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: executables-macos
+        path: |
+          dist/secpdf-*
+          dist/secpdf-gui-*.app
+
+  release:
+    needs: [build_wheels, build_executables]
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Create GitHub Release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: |
+          artifacts/wheels/*.whl
+          artifacts/executables-*/secpdf-*
+          artifacts/executables-*/secpdf-gui-*
+        token: ${{ secrets.GITHUB_TOKEN }}
+        draft: false
+        prerelease: false
+        generateReleaseNotes: true
