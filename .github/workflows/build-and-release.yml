@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*.*.*'  # 监听版本号tag推送，如v1.0.0
 
+env:
+  VERSION: ${{ github.ref_name }}
+
 jobs:
   build_wheels:
     runs-on: ubuntu-latest
@@ -36,12 +39,57 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          # Windows
+          - os: windows-latest
+            arch: x86_64
+            name: windows-x64
+            target: windows
+          - os: windows-latest
+            arch: x86
+            name: windows-x86
+            target: windows
+
+          # Linux
+          - os: ubuntu-latest
+            arch: x86_64
+            name: linux-x64
+            target: linux
+          - os: ubuntu-latest
+            arch: x86
+            name: linux-x86
+            target: linux
+          - os: ubuntu-latest
+            arch: aarch64
+            name: linux-arm64
+            target: linux
+          - os: ubuntu-latest
+            arch: armv7l
+            name: linux-armv7
+            target: linux
+
+          # macOS
+          - os: macos-latest
+            arch: x86_64
+            name: macos-intel
+            target: macos
+          - os: macos-latest
+            arch: arm64
+            name: macos-apple
+            target: macos
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python (Windows x86)
+      if: matrix.os == 'windows-latest' && matrix.arch == 'x86'
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        architecture: 'x86'
+
+    - name: Set up Python (Other)
+      if: matrix.os != 'windows-latest' || matrix.arch != 'x86'
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
@@ -52,47 +100,89 @@ jobs:
         pip install pyinstaller
         pip install -r requirements.txt
 
-    - name: Build executable (Windows)
-      if: matrix.os == 'windows-latest'
+    - name: Set up cross-compilation (Linux ARM)
+      if: matrix.target == 'linux' && matrix.arch == 'aarch64'
       run: |
-        pyinstaller --onefile --name secpdf-windows --console secpdf.py
-        pyinstaller --onefile --name secpdf-gui-windows --windowed secpdf_gui.py
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user-static
 
-    - name: Build executable (Linux)
-      if: matrix.os == 'ubuntu-latest'
+    - name: Set up cross-compilation (Linux ARMv7)
+      if: matrix.target == 'linux' && matrix.arch == 'armv7l'
       run: |
-        pyinstaller --onefile --name secpdf-linux --console secpdf.py
-        pyinstaller --onefile --name secpdf-gui-linux --windowed secpdf_gui.py
+        sudo apt-get update
+        sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf qemu-user-static
 
-    - name: Build executable (macOS)
-      if: matrix.os == 'macos-latest'
+    - name: Build executable (Windows x64)
+      if: matrix.os == 'windows-latest' && matrix.arch == 'x86_64'
       run: |
-        pyinstaller --onefile --name secpdf-macos --console secpdf.py
-        pyinstaller --onefile --name secpdf-gui-macos --windowed secpdf_gui.py
+        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-windows-x64 --console secpdf.py
+        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-windows-x64 --windowed secpdf_gui.py
+
+    - name: Build executable (Windows x86)
+      if: matrix.os == 'windows-latest' && matrix.arch == 'x86'
+      run: |
+        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-windows-x86 --console secpdf.py
+        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-windows-x86 --windowed secpdf_gui.py
+
+    - name: Build executable (Linux x64)
+      if: matrix.target == 'linux' && matrix.arch == 'x86_64'
+      run: |
+        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-linux-x64 --console secpdf.py
+        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-linux-x64 --windowed secpdf_gui.py
+
+    - name: Build executable (Linux x86)
+      if: matrix.target == 'linux' && matrix.arch == 'x86'
+      run: |
+        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-linux-x86 --console secpdf.py
+        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-linux-x86 --windowed secpdf_gui.py
+
+    - name: Build executable (Linux ARM64)
+      if: matrix.target == 'linux' && matrix.arch == 'aarch64'
+      run: |
+        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-linux-arm64 --console secpdf.py
+        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-linux-arm64 --windowed secpdf_gui.py
+
+    - name: Build executable (Linux ARMv7)
+      if: matrix.target == 'linux' && matrix.arch == 'armv7l'
+      run: |
+        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-linux-armv7 --console secpdf.py
+        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-linux-armv7 --windowed secpdf_gui.py
+
+    - name: Build executable (macOS Intel)
+      if: matrix.target == 'macos' && matrix.arch == 'x86_64'
+      run: |
+        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-macos-intel --console secpdf.py
+        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-macos-intel --windowed secpdf_gui.py
+
+    - name: Build executable (macOS Apple)
+      if: matrix.target == 'macos' && matrix.arch == 'arm64'
+      run: |
+        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-macos-apple --console secpdf.py
+        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-macos-apple --windowed secpdf_gui.py
 
     - name: Archive artifacts (Windows)
-      if: matrix.os == 'windows-latest'
+      if: matrix.target == 'windows'
       uses: actions/upload-artifact@v4
       with:
-        name: executables-windows
+        name: executables-${{ matrix.name }}
         path: |
           dist/secpdf-*.exe
           dist/secpdf-gui-*.exe
 
     - name: Archive artifacts (Linux)
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.target == 'linux'
       uses: actions/upload-artifact@v4
       with:
-        name: executables-linux
+        name: executables-${{ matrix.name }}
         path: |
           dist/secpdf-*
           dist/secpdf-gui-*
 
     - name: Archive artifacts (macOS)
-      if: matrix.os == 'macos-latest'
+      if: matrix.target == 'macos'
       uses: actions/upload-artifact@v4
       with:
-        name: executables-macos
+        name: executables-${{ matrix.name }}
         path: |
           dist/secpdf-*
           dist/secpdf-gui-*.app
@@ -119,3 +209,28 @@ jobs:
         draft: false
         prerelease: false
         generateReleaseNotes: true
+        body: |
+          ## 下载说明
+          
+          ### 文件命名规则
+          格式: `secpdf-{VERSION}-{OS}-{ARCH}`
+          - `{VERSION}`: 版本号
+          - `{OS}`: 操作系统
+          - `{ARCH}`: CPU架构
+          
+          ### Windows版本
+          - `secpdf-{VERSION}-windows-x64.exe`: 64位系统
+          - `secpdf-{VERSION}-windows-x86.exe`: 32位系统
+          
+          ### Linux版本
+          - `secpdf-{VERSION}-linux-x64`: Intel/AMD 64位
+          - `secpdf-{VERSION}-linux-x86`: Intel/AMD 32位
+          - `secpdf-{VERSION}-linux-arm64`: ARM 64位 (树莓派4+)
+          - `secpdf-{VERSION}-linux-armv7`: ARM v7 (树莓派3及以下)
+          
+          ### macOS版本
+          - `secpdf-{VERSION}-macos-intel`: Intel处理器
+          - `secpdf-{VERSION}-macos-apple`: Apple Silicon (M1/M2/M3)
+          
+          ### GUI版本
+          对应的GUI版本文件名以`secpdf-gui`开头，提供图形界面。
