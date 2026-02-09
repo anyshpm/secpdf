@@ -6,167 +6,404 @@ on:
       - 'v*.*.*'
 
 env:
-  VERSION: ${{ github.ref_name }}
+  APP_NAME: secpdf
+  PYTHON_VERSION: '3.10'
 
 jobs:
-# -------------------------------------------------
-# 1. Build Python wheels
-# -------------------------------------------------
   build_wheels:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
 
-      - name: Install build tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install build
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+        pip install -r requirements.txt
 
-      - name: Build wheel
-        run: python -m build --wheel
+    - name: Build wheel
+      run: python -m build --wheel
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wheels
-          path: dist/*.whl
+    - name: Upload wheels
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheels
+        path: dist/*.whl
+        retention-days: 7
 
-# -------------------------------------------------
-# 2. Native executables (x64)
-# -------------------------------------------------
   build_executables:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
+          # Windows
           - os: windows-latest
-            name: windows-x64
+            arch: x64
+            platform: windows
+            target: amd64
+            ext: .exe
+          - os: windows-latest
+            arch: x86
+            platform: windows
+            target: i386
+            ext: .exe
 
-          - os: ubuntu-latest
-            name: linux-x64
+          # Linux x86
+          - os: ubuntu-20.04
+            arch: x64
+            platform: linux
+            target: amd64
+            ext: ''
 
+          # macOS
+          - os: macos-13
+            arch: x64
+            platform: darwin
+            target: amd64
+            ext: ''
           - os: macos-latest
-            name: macos-universal
+            arch: arm64
+            platform: darwin
+            target: arm64
+            ext: ''
 
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: Set version without v prefix
+      shell: bash
+      run: |
+        VERSION="${{ github.ref_name }}"
+        echo "VERSION_NUMBER=${VERSION#v}" >> $GITHUB_ENV
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
-          pip install -r requirements.txt
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        architecture: ${{ matrix.arch }}
+        cache: 'pip'
 
-      - name: Build CLI
-        run: |
-          pyinstaller --onefile \
-            --name secpdf-${{ env.VERSION }}-${{ matrix.name }} \
-            secpdf.py
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install -r requirements.txt
 
-      - name: Build GUI
-        run: |
-          pyinstaller --onefile --windowed \
-            --name secpdf-gui-${{ env.VERSION }}-${{ matrix.name }} \
-            secpdf_gui.py
+    - name: Build executables
+      shell: bash
+      run: |
+        # Console version
+        pyinstaller --onefile \
+          --name ${{ env.APP_NAME }} \
+          --console \
+          secpdf.py
+        
+        # GUI version
+        pyinstaller --onefile \
+          --name ${{ env.APP_NAME }}-gui \
+          --windowed \
+          secpdf_gui.py
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: executables-${{ matrix.name }}
-          path: dist/*
+    - name: Rename and package binaries
+      shell: bash
+      run: |
+        mkdir -p packages
+        
+        # Console version
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          cp dist/${{ env.APP_NAME }}.exe \
+             packages/${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}.exe
+        else
+          cp dist/${{ env.APP_NAME }} \
+             packages/${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
+          chmod +x packages/${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
+        fi
+        
+        # GUI version
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          cp dist/${{ env.APP_NAME }}-gui.exe \
+             packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}.exe
+        else
+          cp dist/${{ env.APP_NAME }}-gui \
+             packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
+          chmod +x packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
+        fi
+        
+        ls -lh packages/
 
-# -------------------------------------------------
-# 3. ARM executables (Docker + QEMU)
-# -------------------------------------------------
-  build_executables_arm:
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: binaries-${{ matrix.platform }}-${{ matrix.target }}
+        path: packages/*
+        retention-days: 7
+
+  build_arm_executables:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: linux-arm64
-            platform: linux/arm64
-
-          - name: linux-armv7
-            platform: linux/arm/v7
+          - arch: aarch64
+            target: arm64
+            python_version: 3.10.15
+          - arch: armv7
+            target: armv7
+            python_version: 3.10.15
 
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+    - name: Set version without v prefix
+      run: |
+        VERSION="${{ github.ref_name }}"
+        echo "VERSION_NUMBER=${VERSION#v}" >> $GITHUB_ENV
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: arm64,arm
 
-      - name: Build ARM image
-        run: |
-          docker buildx build \
-            --platform ${{ matrix.platform }} \
-            -t secpdf-arm-builder \
-            -f .github/docker/Dockerfile.arm \
-            --load .
+    - name: Build in Docker container
+      run: |
+        docker run --rm --platform linux/${{ matrix.arch == 'aarch64' && 'arm64' || 'arm/v7' }} \
+          -v ${{ github.workspace }}:/workspace \
+          -w /workspace \
+          -e VERSION_NUMBER=${{ env.VERSION_NUMBER }} \
+          -e APP_NAME=${{ env.APP_NAME }} \
+          -e TARGET=${{ matrix.target }} \
+          python:${{ matrix.python_version }}-slim \
+          bash -c "
+            set -e
+            
+            # Install system dependencies
+            apt-get update
+            apt-get install -y binutils gcc g++ make
+            
+            # Install Python dependencies
+            pip install --no-cache-dir --upgrade pip
+            pip install --no-cache-dir pyinstaller
+            pip install --no-cache-dir -r requirements.txt
+            
+            # Build console version
+            pyinstaller --onefile \
+              --name \${APP_NAME} \
+              --console \
+              secpdf.py
+            
+            # Build GUI version
+            pyinstaller --onefile \
+              --name \${APP_NAME}-gui \
+              --windowed \
+              secpdf_gui.py
+            
+            # Package binaries
+            mkdir -p packages
+            cp dist/\${APP_NAME} packages/\${APP_NAME}_\${VERSION_NUMBER}_linux_\${TARGET}
+            cp dist/\${APP_NAME}-gui packages/\${APP_NAME}-gui_\${VERSION_NUMBER}_linux_\${TARGET}
+            
+            chmod +x packages/*
+            chmod -R 777 packages/
+            
+            ls -lh packages/
+          "
 
-      - name: Build ARM binaries
-        run: |
-          docker run --rm \
-            -e VERSION=${{ env.VERSION }} \
-            -v ${{ github.workspace }}/dist:/app/dist \
-            secpdf-arm-builder \
-            bash -c "
-              pyinstaller --onefile \
-                --name secpdf-${VERSION}-${{ matrix.name }} \
-                secpdf.py && \
-              pyinstaller --onefile --windowed \
-                --name secpdf-gui-${VERSION}-${{ matrix.name }} \
-                secpdf_gui.py
-            "
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: binaries-linux-${{ matrix.target }}
+        path: packages/*
+        retention-days: 7
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: executables-${{ matrix.name }}
-          path: dist/*
-
-# -------------------------------------------------
-# 4. Release
-# -------------------------------------------------
   release:
-    needs:
-      - build_wheels
-      - build_executables
-      - build_executables_arm
+    needs: [build_wheels, build_executables, build_arm_executables]
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
+    - uses: actions/checkout@v4
 
-      - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: |
-            artifacts/wheels/*.whl
-            artifacts/executables-*/secpdf*
-          generateReleaseNotes: true
-          body: |
-            ## 下载说明
+    - name: Set version without v prefix
+      run: |
+        VERSION="${{ github.ref_name }}"
+        echo "VERSION_NUMBER=${VERSION#v}" >> $GITHUB_ENV
 
-            ### 文件命名规则
-            `secpdf-{VERSION}-{OS}-{ARCH}`
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
 
-            ### CLI / GUI
-            - CLI：`secpdf-*`
-            - GUI：`secpdf-gui-*`
+    - name: Prepare release assets
+      run: |
+        mkdir -p release-assets
+        
+        # Copy wheels
+        find artifacts/wheels -type f -name "*.whl" -exec cp {} release-assets/ \;
+        
+        # Copy binaries
+        find artifacts -type f \( -name "${{ env.APP_NAME }}_*" -o -name "${{ env.APP_NAME }}-gui_*" \) -exec cp {} release-assets/ \;
+        
+        ls -lh release-assets/
 
-            ### Linux ARM
-            - `linux-arm64`：树莓派 4 / 5
-            - `linux-armv7`：树莓派 2 / 3
+    - name: Generate checksums
+      run: |
+        cd release-assets
+        sha256sum * > SHA256SUMS.txt
+        md5sum * > MD5SUMS.txt
+        cat SHA256SUMS.txt
+
+    - name: Create archives for each platform
+      run: |
+        cd release-assets
+        
+        # Windows binaries
+        for file in ${{ env.APP_NAME }}*_windows_*.exe; do
+          [ -f "$file" ] || continue
+          base="${file%.exe}"
+          zip "${base}.zip" "$file"
+        done
+        
+        # Linux/Darwin binaries
+        for file in ${{ env.APP_NAME }}*_linux_* ${{ env.APP_NAME }}*_darwin_*; do
+          [ -f "$file" ] || continue
+          tar -czf "${file}.tar.gz" "$file"
+        done
+        
+        ls -lh
+
+    - name: Create GitHub Release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "release-assets/*"
+        token: ${{ secrets.GITHUB_TOKEN }}
+        draft: false
+        prerelease: false
+        generateReleaseNotes: true
+        name: ${{ env.APP_NAME }} ${{ github.ref_name }}
+        body: |
+          ## 📦 下载指南
+          
+          ### 命名规则
+          
+          格式: `{app}[-gui]_{version}_{os}_{arch}.{ext}`
+          
+          - **app**: 应用名称 (`secpdf` 或 `secpdf-gui`)
+          - **version**: 版本号（无 `v` 前缀，如 `1.0.0`）
+          - **os**: 操作系统 (`windows`, `linux`, `darwin`)
+          - **arch**: 架构 (`amd64`, `i386`, `arm64`, `armv7`)
+          - **ext**: 扩展名（`.exe` for Windows）
+          
+          ---
+          
+          ### 🪟 Windows
+          
+          | 架构 | CLI | GUI |
+          |------|-----|-----|
+          | 64-bit | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_windows_amd64.exe` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_windows_amd64.exe` |
+          | 32-bit | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_windows_i386.exe` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_windows_i386.exe` |
+          
+          **压缩包**: `*.zip`
+          
+          ---
+          
+          ### 🐧 Linux
+          
+          | 架构 | CLI | GUI |
+          |------|-----|-----|
+          | x86-64 | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_amd64` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_linux_amd64` |
+          | ARM64 | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_arm64` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_linux_arm64` |
+          | ARMv7 | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_armv7` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_linux_armv7` |
+          
+          **压缩包**: `*.tar.gz`
+          
+          **安装步骤**:
+          ```bash
+          # 解压（如果下载的是压缩包）
+          tar -xzf ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_amd64.tar.gz
+          
+          # 添加执行权限
+          chmod +x ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_amd64
+          
+          # 运行
+          ./${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_amd64
+          
+          # 或移动到系统路径
+          sudo mv ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_amd64 /usr/local/bin/secpdf
+          ```
+          
+          ---
+          
+          ### 🍎 macOS
+          
+          | 架构 | CLI | GUI |
+          |------|-----|-----|
+          | Intel | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_amd64` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_darwin_amd64` |
+          | Apple Silicon | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_arm64` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_darwin_arm64` |
+          
+          **压缩包**: `*.tar.gz`
+          
+          **安装步骤**:
+          ```bash
+          # 解压
+          tar -xzf ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_arm64.tar.gz
+          
+          # 移除隔离属性
+          xattr -cr ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_arm64
+          
+          # 添加执行权限
+          chmod +x ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_arm64
+          
+          # 移动到系统路径
+          sudo mv ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_arm64 /usr/local/bin/secpdf
+          ```
+          
+          ---
+          
+          ### 🐍 Python Package
+          
+          **Wheel 安装**:
+          ```bash
+          pip install ${{ env.APP_NAME }}-${{ env.VERSION_NUMBER }}-py3-none-any.whl
+          ```
+          
+          ---
+          
+          ### ✅ 验证下载
+          
+          **SHA256**:
+          ```bash
+          sha256sum -c SHA256SUMS.txt
+          ```
+          
+          **MD5**:
+          ```bash
+          md5sum -c MD5SUMS.txt
+          ```
+          
+          ---
+          
+          ### 📋 架构对照表
+          
+          | 术语 | 说明 |
+          |------|------|
+          | `amd64` | 64-bit Intel/AMD (x86-64, x64) |
+          | `i386` | 32-bit Intel/AMD (x86, i686) |
+          | `arm64` | 64-bit ARM (aarch64, ARMv8) |
+          | `armv7` | 32-bit ARM (ARMv7, armhf) |
+          | `darwin` | macOS |
+
+    - name: Upload checksums
+      uses: actions/upload-artifact@v4
+      with:
+        name: checksums
+        path: |
+          release-assets/SHA256SUMS.txt
+          release-assets/MD5SUMS.txt
+        retention-days: 90
