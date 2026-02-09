@@ -48,31 +48,26 @@ jobs:
             arch: x64
             platform: windows
             target: amd64
-            ext: .exe
           - os: windows-latest
             arch: x86
             platform: windows
             target: i386
-            ext: .exe
 
           # Linux x86
           - os: ubuntu-20.04
             arch: x64
             platform: linux
             target: amd64
-            ext: ''
 
           # macOS
-          - os: macos-13
+          - os: macos-latest
             arch: x64
             platform: darwin
             target: amd64
-            ext: ''
           - os: macos-latest
             arch: arm64
             platform: darwin
             target: arm64
-            ext: ''
 
     steps:
     - uses: actions/checkout@v4
@@ -111,7 +106,7 @@ jobs:
           --windowed \
           secpdf_gui.py
 
-    - name: Rename and package binaries
+    - name: Rename binaries
       shell: bash
       run: |
         mkdir -p packages
@@ -256,27 +251,7 @@ jobs:
       run: |
         cd release-assets
         sha256sum * > SHA256SUMS.txt
-        md5sum * > MD5SUMS.txt
         cat SHA256SUMS.txt
-
-    - name: Create archives for each platform
-      run: |
-        cd release-assets
-        
-        # Windows binaries
-        for file in ${{ env.APP_NAME }}*_windows_*.exe; do
-          [ -f "$file" ] || continue
-          base="${file%.exe}"
-          zip "${base}.zip" "$file"
-        done
-        
-        # Linux/Darwin binaries
-        for file in ${{ env.APP_NAME }}*_linux_* ${{ env.APP_NAME }}*_darwin_*; do
-          [ -f "$file" ] || continue
-          tar -czf "${file}.tar.gz" "$file"
-        done
-        
-        ls -lh
 
     - name: Create GitHub Release
       uses: ncipollo/release-action@v1
@@ -288,122 +263,48 @@ jobs:
         generateReleaseNotes: true
         name: ${{ env.APP_NAME }} ${{ github.ref_name }}
         body: |
-          ## 📦 下载指南
+          ## 📥 快速下载
           
-          ### 命名规则
+          **文件命名**: `{app}_{version}_{os}_{arch}`
           
-          格式: `{app}[-gui]_{version}_{os}_{arch}.{ext}`
+          ### Windows
+          - 64位: `secpdf_${{ env.VERSION_NUMBER }}_windows_amd64.exe`
+          - 32位: `secpdf_${{ env.VERSION_NUMBER }}_windows_i386.exe`
+          - GUI版本: `secpdf-gui_*.exe`
           
-          - **app**: 应用名称 (`secpdf` 或 `secpdf-gui`)
-          - **version**: 版本号（无 `v` 前缀，如 `1.0.0`）
-          - **os**: 操作系统 (`windows`, `linux`, `darwin`)
-          - **arch**: 架构 (`amd64`, `i386`, `arm64`, `armv7`)
-          - **ext**: 扩展名（`.exe` for Windows）
+          ### Linux
+          - x86-64: `secpdf_${{ env.VERSION_NUMBER }}_linux_amd64`
+          - ARM64: `secpdf_${{ env.VERSION_NUMBER }}_linux_arm64`
+          - ARMv7: `secpdf_${{ env.VERSION_NUMBER }}_linux_armv7`
+          - GUI版本: `secpdf-gui_*`
+          
+          ### macOS
+          - Intel: `secpdf_${{ env.VERSION_NUMBER }}_darwin_amd64`
+          - Apple Silicon: `secpdf_${{ env.VERSION_NUMBER }}_darwin_arm64`
+          - GUI版本: `secpdf-gui_*`
+          
+          ### Python
+          - Wheel: `secpdf-*.whl`
+          - 安装: `pip install secpdf-*.whl`
           
           ---
           
-          ### 🪟 Windows
-          
-          | 架构 | CLI | GUI |
-          |------|-----|-----|
-          | 64-bit | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_windows_amd64.exe` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_windows_amd64.exe` |
-          | 32-bit | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_windows_i386.exe` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_windows_i386.exe` |
-          
-          **压缩包**: `*.zip`
-          
-          ---
-          
-          ### 🐧 Linux
-          
-          | 架构 | CLI | GUI |
-          |------|-----|-----|
-          | x86-64 | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_amd64` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_linux_amd64` |
-          | ARM64 | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_arm64` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_linux_arm64` |
-          | ARMv7 | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_armv7` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_linux_armv7` |
-          
-          **压缩包**: `*.tar.gz`
-          
-          **安装步骤**:
+          **Linux/macOS 使用**:
           ```bash
-          # 解压（如果下载的是压缩包）
-          tar -xzf ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_amd64.tar.gz
-          
-          # 添加执行权限
-          chmod +x ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_amd64
-          
-          # 运行
-          ./${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_amd64
-          
-          # 或移动到系统路径
-          sudo mv ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_linux_amd64 /usr/local/bin/secpdf
+          chmod +x secpdf_*
+          ./secpdf_*
           ```
           
-          ---
-          
-          ### 🍎 macOS
-          
-          | 架构 | CLI | GUI |
-          |------|-----|-----|
-          | Intel | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_amd64` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_darwin_amd64` |
-          | Apple Silicon | `${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_arm64` | `${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_darwin_arm64` |
-          
-          **压缩包**: `*.tar.gz`
-          
-          **安装步骤**:
+          **macOS 首次运行**:
           ```bash
-          # 解压
-          tar -xzf ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_arm64.tar.gz
-          
-          # 移除隔离属性
-          xattr -cr ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_arm64
-          
-          # 添加执行权限
-          chmod +x ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_arm64
-          
-          # 移动到系统路径
-          sudo mv ${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_darwin_arm64 /usr/local/bin/secpdf
+          xattr -cr secpdf_*
           ```
           
-          ---
-          
-          ### 🐍 Python Package
-          
-          **Wheel 安装**:
-          ```bash
-          pip install ${{ env.APP_NAME }}-${{ env.VERSION_NUMBER }}-py3-none-any.whl
-          ```
-          
-          ---
-          
-          ### ✅ 验证下载
-          
-          **SHA256**:
-          ```bash
-          sha256sum -c SHA256SUMS.txt
-          ```
-          
-          **MD5**:
-          ```bash
-          md5sum -c MD5SUMS.txt
-          ```
-          
-          ---
-          
-          ### 📋 架构对照表
-          
-          | 术语 | 说明 |
-          |------|------|
-          | `amd64` | 64-bit Intel/AMD (x86-64, x64) |
-          | `i386` | 32-bit Intel/AMD (x86, i686) |
-          | `arm64` | 64-bit ARM (aarch64, ARMv8) |
-          | `armv7` | 32-bit ARM (ARMv7, armhf) |
-          | `darwin` | macOS |
+          **校验文件**: 下载 `SHA256SUMS.txt` 并运行 `sha256sum -c SHA256SUMS.txt`
 
     - name: Upload checksums
       uses: actions/upload-artifact@v4
       with:
         name: checksums
-        path: |
-          release-assets/SHA256SUMS.txt
-          release-assets/MD5SUMS.txt
+        path: release-assets/SHA256SUMS.txt
         retention-days: 90
