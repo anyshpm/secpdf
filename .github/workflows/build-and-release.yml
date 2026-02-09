@@ -11,7 +11,7 @@ env:
 
 jobs:
   build_wheels:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
 
@@ -44,7 +44,7 @@ jobs:
       matrix:
         include:
           # Windows
-          - os: windows-latest
+          - os: windows-2022
             arch: x64
             platform: windows
             target: amd64
@@ -54,17 +54,17 @@ jobs:
             target: i386
 
           # Linux x86
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             arch: x64
             platform: linux
             target: amd64
 
           # macOS
-          - os: macos-latest
+          - os: macos-13
             arch: x64
             platform: darwin
             target: amd64
-          - os: macos-latest
+          - os: macos-13
             arch: arm64
             platform: darwin
             target: arm64
@@ -178,7 +178,7 @@ jobs:
             
             # Install system dependencies
             apt-get update
-            apt-get install -y binutils gcc g++ make
+            apt-get install -y binutils gcc g++ make zlib1g-dev
             
             # Install Python dependencies
             pip install --no-cache-dir --upgrade pip
