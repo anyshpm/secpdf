@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="secpdf",
-    version="1.0.0",
+    version="1.1.0",
     description="PDF文件安全处理工具",
     long_description="""PDF文件安全处理工具，支持以下功能：
 1. 生成加密普通PDF文件
