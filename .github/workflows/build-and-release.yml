@@ -7,7 +7,7 @@ on:
 
 env:
   APP_NAME: secpdf
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.12'
 
 jobs:
   build_wheels:
@@ -128,7 +128,7 @@ jobs:
         else
           cp dist/${{ env.APP_NAME }}-gui \
              packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
-          chmod +x packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
+          chmod +x packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ target }}
         fi
         
         ls -lh packages/
@@ -148,10 +148,8 @@ jobs:
         include:
           - arch: aarch64
             target: arm64
-            python_version: 3.10.15
           - arch: armv7
             target: armv7
-            python_version: 3.10.15
 
     steps:
     - uses: actions/checkout@v4
@@ -174,7 +172,7 @@ jobs:
           -e VERSION_NUMBER=${{ env.VERSION_NUMBER }} \
           -e APP_NAME=${{ env.APP_NAME }} \
           -e TARGET=${{ matrix.target }} \
-          python:${{ matrix.python_version }}-slim \
+          python:${{ env.PYTHON_VERSION }}-slim \
           bash -c "
             set -e
             
@@ -241,7 +239,7 @@ jobs:
         fi
         
         echo "Version: ${VERSION_NUMBER}"
-        echo "Is Prerelease: ${IS_PRERELEASE}"
+        echo "Is Prerelease: $IS_PRERELEASE"
 
     - name: Download all artifacts
       uses: actions/download-artifact@v4
