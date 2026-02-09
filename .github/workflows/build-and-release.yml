@@ -3,234 +3,170 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*'  # 监听版本号tag推送，如v1.0.0
+      - 'v*.*.*'
 
 env:
   VERSION: ${{ github.ref_name }}
 
 jobs:
+# -------------------------------------------------
+# 1. Build Python wheels
+# -------------------------------------------------
   build_wheels:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install setuptools wheel
-        pip install -r requirements.txt
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
 
-    - name: Build wheel
-      run: |
-        python setup.py bdist_wheel
+      - name: Build wheel
+        run: python -m build --wheel
 
-    - name: Upload wheels
-      uses: actions/upload-artifact@v4
-      with:
-        name: wheels
-        path: dist/*.whl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels
+          path: dist/*.whl
 
+# -------------------------------------------------
+# 2. Native executables (x64)
+# -------------------------------------------------
   build_executables:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          # Windows
           - os: windows-latest
-            arch: x86_64
             name: windows-x64
-            target: windows
-          - os: windows-latest
-            arch: x86
-            name: windows-x86
-            target: windows
 
-          # Linux
           - os: ubuntu-latest
-            arch: x86_64
             name: linux-x64
-            target: linux
-          - os: ubuntu-latest
-            arch: x86
-            name: linux-x86
-            target: linux
-          - os: ubuntu-latest
-            arch: aarch64
-            name: linux-arm64
-            target: linux
-          - os: ubuntu-latest
-            arch: armv7l
-            name: linux-armv7
-            target: linux
 
-          # macOS
           - os: macos-latest
-            arch: x86_64
-            name: macos-intel
-            target: macos
-          - os: macos-latest
-            arch: arm64
-            name: macos-apple
-            target: macos
+            name: macos-universal
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python (Windows x86)
-      if: matrix.os == 'windows-latest' && matrix.arch == 'x86'
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-        architecture: 'x86'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Set up Python (Other)
-      if: matrix.os != 'windows-latest' || matrix.arch != 'x86'
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller
-        pip install -r requirements.txt
+      - name: Build CLI
+        run: |
+          pyinstaller --onefile \
+            --name secpdf-${{ env.VERSION }}-${{ matrix.name }} \
+            secpdf.py
 
-    - name: Set up cross-compilation (Linux ARM)
-      if: matrix.target == 'linux' && matrix.arch == 'aarch64'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user-static
+      - name: Build GUI
+        run: |
+          pyinstaller --onefile --windowed \
+            --name secpdf-gui-${{ env.VERSION }}-${{ matrix.name }} \
+            secpdf_gui.py
 
-    - name: Set up cross-compilation (Linux ARMv7)
-      if: matrix.target == 'linux' && matrix.arch == 'armv7l'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf qemu-user-static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: executables-${{ matrix.name }}
+          path: dist/*
 
-    - name: Build executable (Windows x64)
-      if: matrix.os == 'windows-latest' && matrix.arch == 'x86_64'
-      run: |
-        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-windows-x64 --console secpdf.py
-        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-windows-x64 --windowed secpdf_gui.py
+# -------------------------------------------------
+# 3. ARM executables (Docker + QEMU)
+# -------------------------------------------------
+  build_executables_arm:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-arm64
+            platform: linux/arm64
 
-    - name: Build executable (Windows x86)
-      if: matrix.os == 'windows-latest' && matrix.arch == 'x86'
-      run: |
-        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-windows-x86 --console secpdf.py
-        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-windows-x86 --windowed secpdf_gui.py
+          - name: linux-armv7
+            platform: linux/arm/v7
 
-    - name: Build executable (Linux x64)
-      if: matrix.target == 'linux' && matrix.arch == 'x86_64'
-      run: |
-        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-linux-x64 --console secpdf.py
-        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-linux-x64 --windowed secpdf_gui.py
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Build executable (Linux x86)
-      if: matrix.target == 'linux' && matrix.arch == 'x86'
-      run: |
-        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-linux-x86 --console secpdf.py
-        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-linux-x86 --windowed secpdf_gui.py
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-    - name: Build executable (Linux ARM64)
-      if: matrix.target == 'linux' && matrix.arch == 'aarch64'
-      run: |
-        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-linux-arm64 --console secpdf.py
-        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-linux-arm64 --windowed secpdf_gui.py
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Build executable (Linux ARMv7)
-      if: matrix.target == 'linux' && matrix.arch == 'armv7l'
-      run: |
-        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-linux-armv7 --console secpdf.py
-        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-linux-armv7 --windowed secpdf_gui.py
+      - name: Build ARM image
+        run: |
+          docker buildx build \
+            --platform ${{ matrix.platform }} \
+            -t secpdf-arm-builder \
+            -f .github/docker/Dockerfile.arm \
+            --load .
 
-    - name: Build executable (macOS Intel)
-      if: matrix.target == 'macos' && matrix.arch == 'x86_64'
-      run: |
-        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-macos-intel --console secpdf.py
-        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-macos-intel --windowed secpdf_gui.py
+      - name: Build ARM binaries
+        run: |
+          docker run --rm \
+            -e VERSION=${{ env.VERSION }} \
+            -v ${{ github.workspace }}/dist:/app/dist \
+            secpdf-arm-builder \
+            bash -c "
+              pyinstaller --onefile \
+                --name secpdf-${VERSION}-${{ matrix.name }} \
+                secpdf.py && \
+              pyinstaller --onefile --windowed \
+                --name secpdf-gui-${VERSION}-${{ matrix.name }} \
+                secpdf_gui.py
+            "
 
-    - name: Build executable (macOS Apple)
-      if: matrix.target == 'macos' && matrix.arch == 'arm64'
-      run: |
-        pyinstaller --onefile --name secpdf-${{ env.VERSION }}-macos-apple --console secpdf.py
-        pyinstaller --onefile --name secpdf-gui-${{ env.VERSION }}-macos-apple --windowed secpdf_gui.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: executables-${{ matrix.name }}
+          path: dist/*
 
-    - name: Archive artifacts (Windows)
-      if: matrix.target == 'windows'
-      uses: actions/upload-artifact@v4
-      with:
-        name: executables-${{ matrix.name }}
-        path: |
-          dist/secpdf-*.exe
-          dist/secpdf-gui-*.exe
-
-    - name: Archive artifacts (Linux)
-      if: matrix.target == 'linux'
-      uses: actions/upload-artifact@v4
-      with:
-        name: executables-${{ matrix.name }}
-        path: |
-          dist/secpdf-*
-          dist/secpdf-gui-*
-
-    - name: Archive artifacts (macOS)
-      if: matrix.target == 'macos'
-      uses: actions/upload-artifact@v4
-      with:
-        name: executables-${{ matrix.name }}
-        path: |
-          dist/secpdf-*
-          dist/secpdf-gui-*.app
-
+# -------------------------------------------------
+# 4. Release
+# -------------------------------------------------
   release:
-    needs: [build_wheels, build_executables]
-    runs-on: windows-latest
+    needs:
+      - build_wheels
+      - build_executables
+      - build_executables_arm
+    runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: |
+            artifacts/wheels/*.whl
+            artifacts/executables-*/secpdf*
+          generateReleaseNotes: true
+          body: |
+            ## 下载说明
 
-    - name: Create GitHub Release
-      uses: ncipollo/release-action@v1
-      with:
-        artifacts: |
-          artifacts/wheels/*.whl
-          artifacts/executables-*/secpdf-*
-          artifacts/executables-*/secpdf-gui-*
-        token: ${{ secrets.GITHUB_TOKEN }}
-        draft: false
-        prerelease: false
-        generateReleaseNotes: true
-        body: |
-          ## 下载说明
-          
-          ### 文件命名规则
-          格式: `secpdf-{VERSION}-{OS}-{ARCH}`
-          - `{VERSION}`: 版本号
-          - `{OS}`: 操作系统
-          - `{ARCH}`: CPU架构
-          
-          ### Windows版本
-          - `secpdf-{VERSION}-windows-x64.exe`: 64位系统
-          - `secpdf-{VERSION}-windows-x86.exe`: 32位系统
-          
-          ### Linux版本
-          - `secpdf-{VERSION}-linux-x64`: Intel/AMD 64位
-          - `secpdf-{VERSION}-linux-x86`: Intel/AMD 32位
-          - `secpdf-{VERSION}-linux-arm64`: ARM 64位 (树莓派4+)
-          - `secpdf-{VERSION}-linux-armv7`: ARM v7 (树莓派3及以下)
-          
-          ### macOS版本
-          - `secpdf-{VERSION}-macos-intel`: Intel处理器
-          - `secpdf-{VERSION}-macos-apple`: Apple Silicon (M1/M2/M3)
-          
-          ### GUI版本
-          对应的GUI版本文件名以`secpdf-gui`开头，提供图形界面。
+            ### 文件命名规则
+            `secpdf-{VERSION}-{OS}-{ARCH}`
+
+            ### CLI / GUI
+            - CLI：`secpdf-*`
+            - GUI：`secpdf-gui-*`
+
+            ### Linux ARM
+            - `linux-arm64`：树莓派 4 / 5
+            - `linux-armv7`：树莓派 2 / 3
