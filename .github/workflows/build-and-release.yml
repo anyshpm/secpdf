@@ -11,7 +11,7 @@ env:
 
 jobs:
   build_wheels:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
 
@@ -48,23 +48,23 @@ jobs:
             arch: x64
             platform: windows
             target: amd64
-          - os: windows-latest
+          - os: windows-2022
             arch: x86
             platform: windows
             target: i386
 
           # Linux x86
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
             arch: x64
             platform: linux
             target: amd64
 
           # macOS
-          - os: macos-13
+          - os: macos-14
             arch: x64
             platform: darwin
             target: amd64
-          - os: macos-13
+          - os: macos-14
             arch: arm64
             platform: darwin
             target: arm64
@@ -141,7 +141,7 @@ jobs:
         retention-days: 7
 
   build_arm_executables:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -217,7 +217,7 @@ jobs:
 
   release:
     needs: [build_wheels, build_executables, build_arm_executables]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
