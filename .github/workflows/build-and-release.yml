@@ -128,7 +128,7 @@ jobs:
         else
           cp dist/${{ env.APP_NAME }}-gui \
              packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
-          chmod +x packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ target }}
+          chmod +x packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
         fi
         
         ls -lh packages/
