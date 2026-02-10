@@ -13,313 +13,168 @@ jobs:
   build_wheels:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
-        pip install -r requirements.txt
+      - name: Build wheel
+        run: |
+          pip install build
+          python -m build --wheel
 
-    - name: Build wheel
-      run: python -m build --wheel
-
-    - name: Upload wheels
-      uses: actions/upload-artifact@v4
-      with:
-        name: wheels
-        path: dist/*.whl
-        retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels
+          path: dist/*.whl
 
   build_executables:
+    name: Build (${{ matrix.platform }}-${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Windows
-          - os: windows-2022
-            arch: x64
-            platform: windows
-            target: amd64
-          - os: windows-2022
-            arch: x86
-            platform: windows
-            target: i386
-
-          # Linux x86
-          - os: ubuntu-24.04
-            arch: x64
-            platform: linux
-            target: amd64
-
-          # macOS
-          - os: macos-14
-            arch: x64
-            platform: darwin
-            target: amd64
-          - os: macos-14
-            arch: arm64
-            platform: darwin
-            target: arm64
+          - { os: windows-2022,   platform: windows, arch: x64,   target: amd64 }
+          - { os: windows-2022,   platform: windows, arch: x86,   target: i386 }
+          - { os: ubuntu-24.04,   platform: linux,   arch: x64,   target: amd64 }
+          - { os: macos-15-intel, platform: darwin,  arch: x64,   target: amd64 }
+          - { os: macos-15,       platform: darwin,  arch: arm64, target: arm64 }
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set version without v prefix
-      shell: bash
-      run: |
-        VERSION="${{ github.ref_name }}"
-        echo "VERSION_NUMBER=${VERSION#v}" >> $GITHUB_ENV
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          architecture: ${{ matrix.arch }}
+          cache: pip
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        architecture: ${{ matrix.arch }}
-        cache: 'pip'
+      - name: Install dependencies
+        run: pip install pyinstaller -r requirements.txt
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller
-        pip install -r requirements.txt
+      - name: Install file (Windows)
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: choco install -y file
 
-    - name: Build executables
-      shell: bash
-      run: |
-        # Console version
-        pyinstaller --onefile \
-          --name ${{ env.APP_NAME }} \
-          --console \
-          secpdf.py
-        
-        # GUI version
-        pyinstaller --onefile \
-          --name ${{ env.APP_NAME }}-gui \
-          --windowed \
-          secpdf_gui.py
+      - name: Build
+        shell: bash
+        run: |
+          pyinstaller --onefile --name ${{ env.APP_NAME }} --console secpdf.py
+          pyinstaller --onefile --name ${{ env.APP_NAME }}-gui --windowed secpdf_gui.py
 
-    - name: Rename binaries
-      shell: bash
-      run: |
-        mkdir -p packages
-        
-        # Console version
-        if [ "${{ matrix.platform }}" = "windows" ]; then
-          cp dist/${{ env.APP_NAME }}.exe \
-             packages/${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}.exe
-        else
-          cp dist/${{ env.APP_NAME }} \
-             packages/${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
-          chmod +x packages/${{ env.APP_NAME }}_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
-        fi
-        
-        # GUI version
-        if [ "${{ matrix.platform }}" = "windows" ]; then
-          cp dist/${{ env.APP_NAME }}-gui.exe \
-             packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}.exe
-        else
-          cp dist/${{ env.APP_NAME }}-gui \
-             packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
-          chmod +x packages/${{ env.APP_NAME }}-gui_${{ env.VERSION_NUMBER }}_${{ matrix.platform }}_${{ matrix.target }}
-        fi
-        
-        ls -lh packages/
+      - name: Smoke Test (CLI)
+        shell: bash
+        run: |
+          EXT=$([[ "${{ matrix.platform }}" == "windows" ]] && echo ".exe" || echo "")
+          ./dist/${{ env.APP_NAME }}${EXT} --help >/dev/null
+          ./dist/${{ env.APP_NAME }}${EXT} --version >/dev/null || \
+          ./dist/${{ env.APP_NAME }}${EXT} -V >/dev/null
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: binaries-${{ matrix.platform }}-${{ matrix.target }}
-        path: packages/*
-        retention-days: 7
+      - name: Package and Verify
+        shell: bash
+        run: |
+          set -e
+          VERSION_NUMBER="${GITHUB_REF_NAME#v}"
+          mkdir -p packages
+          EXT=$([[ "${{ matrix.platform }}" == "windows" ]] && echo ".exe" || echo "")
+
+          cp dist/${{ env.APP_NAME }}${EXT} \
+             packages/${{ env.APP_NAME }}_${VERSION_NUMBER}_${{ matrix.platform }}_${{ matrix.target }}${EXT}
+          cp dist/${{ env.APP_NAME }}-gui${EXT} \
+             packages/${{ env.APP_NAME }}-gui_${VERSION_NUMBER}_${{ matrix.platform }}_${{ matrix.target }}${EXT}
+
+          EXPECT="${{ matrix.target }}"
+          for f in packages/*; do
+            INFO=$(file "$f")
+            echo "Verifying $f: $INFO"
+            case "$EXPECT" in
+              amd64) echo "$INFO" | grep -Eiq 'x86-64|x86_64' ;;
+              i386)  echo "$INFO" | grep -Eiq '80386|i386' ;;
+              arm64) echo "$INFO" | grep -Eiq 'aarch64|arm64' ;;
+            esac || exit 1
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.platform }}-${{ matrix.target }}
+          path: packages/*
 
   build_arm_executables:
     runs-on: ubuntu-24.04
     strategy:
-      fail-fast: false
       matrix:
         include:
-          - arch: aarch64
-            target: arm64
-          - arch: armv7
-            target: armv7
+          - { arch: aarch64, target: arm64, platform_tag: linux/arm64 }
+          - { arch: armv7,   target: armv7, platform_tag: linux/arm/v7 }
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
 
-    - name: Set version without v prefix
-      run: |
-        VERSION="${{ github.ref_name }}"
-        echo "VERSION_NUMBER=${VERSION#v}" >> $GITHUB_ENV
+      - name: Build and Smoke Test in Docker
+        run: |
+          VERSION_NUMBER="${GITHUB_REF_NAME#v}"
+          docker run --rm \
+            --platform ${{ matrix.platform_tag }} \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            python:${{ env.PYTHON_VERSION }}-slim \
+            bash -c "
+              set -e
+              apt-get update
+              apt-get install -y file gcc g++ make zlib1g-dev libjpeg-dev libpng-dev
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: arm64,arm
+              pip install --no-cache-dir pyinstaller -r requirements.txt
 
-    - name: Build in Docker container
-      run: |
-        docker run --rm --platform linux/${{ matrix.arch == 'aarch64' && 'arm64' || 'arm/v7' }} \
-          -v ${{ github.workspace }}:/workspace \
-          -w /workspace \
-          -e VERSION_NUMBER=${{ env.VERSION_NUMBER }} \
-          -e APP_NAME=${{ env.APP_NAME }} \
-          -e TARGET=${{ matrix.target }} \
-          python:${{ env.PYTHON_VERSION }}-slim \
-          bash -c "
-            set -e
-            
-            # Install system dependencies
-            apt-get update
-            apt-get install -y binutils gcc g++ make zlib1g-dev libjpeg-dev libpng-dev
-            
-            # Install Python dependencies
-            pip install --no-cache-dir --upgrade pip
-            pip install --no-cache-dir pyinstaller
-            pip install --no-cache-dir -r requirements.txt
-            
-            # Build console version
-            pyinstaller --onefile \
-              --name \${APP_NAME} \
-              --console \
-              secpdf.py
-            
-            # Build GUI version
-            pyinstaller --onefile \
-              --name \${APP_NAME}-gui \
-              --windowed \
-              secpdf_gui.py
-            
-            # Package binaries
-            mkdir -p packages
-            cp dist/\${APP_NAME} packages/\${APP_NAME}_\${VERSION_NUMBER}_linux_\${TARGET}
-            cp dist/\${APP_NAME}-gui packages/\${APP_NAME}-gui_\${VERSION_NUMBER}_linux_\${TARGET}
-            
-            chmod +x packages/*
-            chmod -R 777 packages/
-            
-            ls -lh packages/
-          "
+              pyinstaller --onefile --name secpdf secpdf.py
+              pyinstaller --onefile --name secpdf-gui secpdf_gui.py
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: binaries-linux-${{ matrix.target }}
-        path: packages/*
-        retention-days: 7
+              ./dist/secpdf --help >/dev/null
+              ./dist/secpdf --version >/dev/null || ./dist/secpdf -V >/dev/null
+
+              mkdir -p packages
+              cp dist/secpdf packages/secpdf_${VERSION_NUMBER}_linux_${{ matrix.target }}
+              cp dist/secpdf-gui packages/secpdf-gui_${VERSION_NUMBER}_linux_${{ matrix.target }}
+
+              for f in packages/*; do
+                INFO=\$(file \"\$f\")
+                echo \"\$INFO\"
+                [[ '${{ matrix.target }}' == 'arm64' ]] && echo \"\$INFO\" | grep -Ei 'aarch64|arm64'
+                [[ '${{ matrix.target }}' == 'armv7' ]] && echo \"\$INFO\" | grep -Ei 'ARM.*EABI'
+              done
+            "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-linux-${{ matrix.target }}
+          path: packages/*
 
   release:
     needs: [build_wheels, build_executables, build_arm_executables]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set version and detect prerelease
-      run: |
-        VERSION="${{ github.ref_name }}"
-        VERSION_NUMBER="${VERSION#v}"
-        echo "VERSION_NUMBER=${VERSION_NUMBER}" >> $GITHUB_ENV
-        
-        # Check if version contains prerelease identifiers
-        if echo "${VERSION_NUMBER}" | grep -qiE '(alpha|beta|rc|pre|dev|test)'; then
-          echo "IS_PRERELEASE=true" >> $GITHUB_ENV
-          echo "RELEASE_TYPE=Pre-release" >> $GITHUB_ENV
-        else
-          echo "IS_PRERELEASE=false" >> $GITHUB_ENV
-          echo "RELEASE_TYPE=Stable Release" >> $GITHUB_ENV
-        fi
-        
-        echo "Version: ${VERSION_NUMBER}"
-        echo "Is Prerelease: $IS_PRERELEASE"
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
 
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
+      - name: Generate checksums
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
 
-    - name: Prepare release assets
-      run: |
-        mkdir -p release-assets
-        
-        # Copy wheels
-        find artifacts/wheels -type f -name "*.whl" -exec cp {} release-assets/ \;
-        
-        # Copy binaries
-        find artifacts -type f \( -name "${{ env.APP_NAME }}_*" -o -name "${{ env.APP_NAME }}-gui_*" \) -exec cp {} release-assets/ \;
-        
-        ls -lh release-assets/
-
-    - name: Generate checksums
-      run: |
-        cd release-assets
-        sha256sum * > SHA256SUMS.txt
-        cat SHA256SUMS.txt
-
-    - name: Create GitHub Release
-      uses: ncipollo/release-action@v1
-      with:
-        artifacts: "release-assets/*"
-        token: ${{ secrets.GITHUB_TOKEN }}
-        draft: false
-        prerelease: ${{ env.IS_PRERELEASE }}
-        generateReleaseNotes: true
-        name: ${{ env.APP_NAME }} ${{ github.ref_name }}
-        body: |
-          ## 📋 Release Type: ${{ env.RELEASE_TYPE }}
-          
-          ${{ env.IS_PRERELEASE == 'true' && '> ⚠️ **This is a pre-release version**. It may contain bugs or incomplete features. Use in production at your own risk.' || '' }}
-          
-          ## 📥 快速下载
-          
-          **文件命名**: `{app}_{version}_{os}_{arch}`
-          
-          ### Windows
-          - 64位: `secpdf_${{ env.VERSION_NUMBER }}_windows_amd64.exe`
-          - 32位: `secpdf_${{ env.VERSION_NUMBER }}_windows_i386.exe`
-          - GUI版本: `secpdf-gui_*.exe`
-          
-          ### Linux
-          - x86-64: `secpdf_${{ env.VERSION_NUMBER }}_linux_amd64`
-          - ARM64: `secpdf_${{ env.VERSION_NUMBER }}_linux_arm64`
-          - ARMv7: `secpdf_${{ env.VERSION_NUMBER }}_linux_armv7`
-          - GUI版本: `secpdf-gui_*`
-          
-          ### macOS
-          - Intel: `secpdf_${{ env.VERSION_NUMBER }}_darwin_amd64`
-          - Apple Silicon: `secpdf_${{ env.VERSION_NUMBER }}_darwin_arm64`
-          - GUI版本: `secpdf-gui_*`
-          
-          ### Python
-          - Wheel: `secpdf-*.whl`
-          - 安装: `pip install secpdf-*.whl`
-          
-          ---
-          
-          **Linux/macOS 使用**:
-          ```bash
-          chmod +x secpdf_*
-          ./secpdf_*
-          ```
-          
-          **macOS 首次运行**:
-          ```bash
-          xattr -cr secpdf_*
-          ```
-          
-          **校验文件**: 下载 `SHA256SUMS.txt` 并运行 `sha256sum -c SHA256SUMS.txt`
-
-    - name: Upload checksums
-      uses: actions/upload-artifact@v4
-      with:
-        name: checksums
-        path: release-assets/SHA256SUMS.txt
-        retention-days: 90
+      - uses: ncipollo/release-action@v1
+        with:
+          artifacts: "release-assets/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          generateReleaseNotes: true
+          name: secpdf ${{ github.ref_name }}
