@@ -63,7 +63,7 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          pyinstaller --onefile --name ${{ env.APP_NAME }} --console secpdf.py
+          pyinstaller --onefile --name ${{ env.APP_NAME }} --console secpdf/core.py
           pyinstaller --onefile --name ${{ env.APP_NAME }}-gui --windowed secpdf_gui.py
 
       - name: Smoke Test (CLI)
@@ -71,8 +71,7 @@ jobs:
         run: |
           EXT=$([[ "${{ matrix.platform }}" == "windows" ]] && echo ".exe" || echo "")
           ./dist/${{ env.APP_NAME }}${EXT} --help >/dev/null
-          ./dist/${{ env.APP_NAME }}${EXT} --version >/dev/null || \
-          ./dist/${{ env.APP_NAME }}${EXT} -V >/dev/null
+          ./dist/${{ env.APP_NAME }}${EXT} --version >/dev/null
 
       - name: Package and Verify
         shell: bash
@@ -130,11 +129,11 @@ jobs:
 
               pip install --no-cache-dir pyinstaller -r requirements.txt
 
-              pyinstaller --onefile --name secpdf secpdf.py
+              pyinstaller --onefile --name secpdf secpdf/core.py
               pyinstaller --onefile --name secpdf-gui secpdf_gui.py
 
               ./dist/secpdf --help >/dev/null
-              ./dist/secpdf --version >/dev/null || ./dist/secpdf -V >/dev/null
+              ./dist/secpdf --version >/dev/null
 
               mkdir -p packages
               cp dist/secpdf packages/secpdf_${VERSION_NUMBER}_linux_${{ matrix.target }}
