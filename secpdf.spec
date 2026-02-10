@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['secpdf.py'],
+    ['secpdf_cli.py'],
     pathex=[],
     binaries=[],
     datas=[],

@@ -63,7 +63,7 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          pyinstaller --onefile --name ${{ env.APP_NAME }} --console secpdf/core.py
+          pyinstaller --onefile --name ${{ env.APP_NAME }} --console secpdf_cli.py
           pyinstaller --onefile --name ${{ env.APP_NAME }}-gui --windowed secpdf_gui.py
 
       - name: Smoke Test (CLI)
@@ -129,7 +129,7 @@ jobs:
 
               pip install --no-cache-dir pyinstaller -r requirements.txt
 
-              pyinstaller --onefile --name secpdf secpdf/core.py
+              pyinstaller --onefile --name secpdf secpdf_cli.py
               pyinstaller --onefile --name secpdf-gui secpdf_gui.py
 
               ./dist/secpdf --help >/dev/null

@@ -21,7 +21,7 @@ setup(
     url="",
     packages=find_packages(),
     include_package_data=True,
-    py_modules=["secpdf_gui"],
+    py_modules=["secpdf_gui", "secpdf_cli"],
     install_requires=[
         "PyMuPDF",
         "Pillow",
@@ -29,7 +29,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "secpdf=secpdf.core:main",
+            "secpdf=secpdf_cli:main",
             "secpdf-gui=secpdf_gui:main"
         ]
     },
