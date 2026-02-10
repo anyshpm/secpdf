@@ -123,7 +123,7 @@ jobs:
             -w /workspace \
             python:${{ env.PYTHON_VERSION }}-slim \
             bash -c "
-              set -e
+              set -ex
               apt-get update
               apt-get install -y file gcc g++ make zlib1g-dev libjpeg-dev libpng-dev
 
