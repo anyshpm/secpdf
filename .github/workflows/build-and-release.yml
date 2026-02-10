@@ -109,6 +109,11 @@ jobs:
     permissions:
       contents: write
 
+    env:
+      TAG_NAME: ${{ github.ref_name }}
+      VERSION_NUMBER: ${{ github.ref_name }}
+      IS_PRERELEASE: ${{ contains(github.ref_name, '-') }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -122,9 +127,16 @@ jobs:
           cd release-assets
           sha256sum * > SHA256SUMS.txt
 
+      - name: Show release info
+        run: |
+          echo "Tag:        $TAG_NAME"
+          echo "Version:    ${TAG_NAME#v}"
+          echo "Prerelease: $IS_PRERELEASE"
+
       - uses: ncipollo/release-action@v1
         with:
           artifacts: "release-assets/*"
           token: ${{ secrets.GITHUB_TOKEN }}
           generateReleaseNotes: true
           name: secpdf ${{ github.ref_name }}
+          prerelease: ${{ env.IS_PRERELEASE }}
