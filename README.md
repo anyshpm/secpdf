@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📄 SecPDF - PDF文件安全处理工具
+# 📄 SecPDF - PDF Security Tool
 
 [![GitHub release](https://img.shields.io/github/v/release/anyshpm/secpdf?style=flat-square)](https://github.com/anyshpm/secpdf/releases)
 [![GitHub downloads](https://img.shields.io/github/downloads/anyshpm/secpdf/total?style=flat-square)](https://github.com/anyshpm/secpdf/releases)
@@ -207,6 +207,8 @@ PDF 输入
 
 <div align="center">
 
-**如果这个项目对你有帮助，请给它一个 ⭐️ Star**
+**If this project helps you, please give it a ⭐️ Star**
+
+Made with ❤️ by Anyshpm
 
 </div>

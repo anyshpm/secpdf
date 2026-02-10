@@ -7,7 +7,7 @@ import os
 class PDFSecurityGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"PDF安全处理工具 v{__version__}")
+        self.root.title(f"SecPDF v{__version__} - PDF Security Tool")
         # 不设置具体的geometry值，让Tkinter自动计算窗口大小
         self.root.resizable(True, True)
         
@@ -19,7 +19,7 @@ class PDFSecurityGUI:
         self.main_frame.pack(fill=tk.BOTH, expand=True)
         
         # 创建标题
-        self.title_label = ttk.Label(self.main_frame, text="PDF安全处理工具", font=("SimHei", 16, "bold"))
+        self.title_label = ttk.Label(self.main_frame, text="SecPDF - PDF Security Tool", font=("Arial", 16, "bold"))
         self.title_label.pack(pady=(0, 20))
         
         # 创建输入文件选择框架
