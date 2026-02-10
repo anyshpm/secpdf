@@ -18,31 +18,34 @@ class PDFSecurityTool:
     def pdf_to_images(self, pdf_path):
         """
         将PDF文件转换为图片对象
-        
+
         Args:
             pdf_path: PDF文件路径
-        
+
         Returns:
             图片对象列表
         """
         print("正在将PDF转换为图片...")
-        
+
         # 打开PDF文件
         doc = fitz.open(pdf_path)
         images = []
-        
+
+        # 使用 2 倍缩放，适合屏幕显示（144 DPI）
+        matrix = fitz.Matrix(2.0, 2.0)
+
         # 遍历每一页
         for page_num in range(len(doc)):
             # 获取页面
             page = doc.load_page(page_num)
-            
-            # 转换页面为图片
-            pix = page.get_pixmap()
-            
+
+            # 转换页面为图片（144 DPI，适合屏幕显示）
+            pix = page.get_pixmap(matrix=matrix)
+
             # 将pixmap转换为PIL Image
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
             images.append(img)
-        
+
         doc.close()
         print(f"成功转换 {len(images)} 页")
         return images
@@ -71,16 +74,16 @@ class PDFSecurityTool:
     def images_to_pdf_in_memory(self, images):
         """
         在内存中将图片对象合并为PDF字节数据
-        
+
         Args:
             images: 图片对象列表
-        
+
         Returns:
             PDF字节数据
         """
         if not images:
             raise ValueError("No images to convert")
-        
+
         print("正在将图片合并为PDF...")
         # 准备图片
         prepared_images = []
@@ -89,20 +92,20 @@ class PDFSecurityTool:
             if img.mode != "RGB":
                 img = img.convert("RGB")
             prepared_images.append(img)
-        
-        # 在内存中保存为PDF
+
+        # 在内存中保存为PDF，使用 144 DPI 匹配输入图片质量
         output_stream = BytesIO()
         first_image = prepared_images[0]
         other_images = prepared_images[1:]
-        
+
         first_image.save(
             output_stream,
             "PDF",
-            resolution=100.0,
+            resolution=144.0,
             save_all=True,
             append_images=other_images
         )
-        
+
         output_stream.seek(0)
         print("图片合并完成")
         return output_stream.read()
