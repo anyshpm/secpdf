@@ -1,8 +1,14 @@
 from setuptools import setup, find_packages
+import os
+
+# Read version from _version.py
+version = {}
+with open(os.path.join("secpdf", "_version.py")) as fp:
+    exec(fp.read(), version)
 
 setup(
     name="secpdf",
-    version="1.2.0",
+    version=version["__version__"],
     description="PDF文件安全处理工具",
     long_description="""PDF文件安全处理工具，支持以下功能：
 1. 生成加密普通PDF文件
@@ -14,7 +20,8 @@ setup(
     author_email="",
     url="",
     packages=find_packages(),
-    py_modules=["secpdf", "secpdf_gui"],
+    include_package_data=True,
+    py_modules=["secpdf_gui"],
     install_requires=[
         "PyMuPDF",
         "Pillow",
@@ -22,7 +29,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "secpdf=secpdf:main",
+            "secpdf=secpdf.core:main",
             "secpdf-gui=secpdf_gui:main"
         ]
     },

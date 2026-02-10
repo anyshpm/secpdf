@@ -1,12 +1,13 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from secpdf import PDFSecurityTool
+from secpdf.core import PDFSecurityTool
+from secpdf._version import __version__
 import os
 
 class PDFSecurityGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("PDF安全处理工具")
+        self.root.title(f"PDF安全处理工具 v{__version__}")
         # 不设置具体的geometry值，让Tkinter自动计算窗口大小
         self.root.resizable(True, True)
         

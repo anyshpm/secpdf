@@ -2,6 +2,26 @@
 
 本工具用于PDF文件的安全处理，支持多种处理模式，包括PDF加密、PDF转图片、图片转PDF等功能。提供命令行和GUI两种使用方式。
 
+## 版本管理
+
+项目使用统一的版本管理方式，版本号定义在 `secpdf/_version.py` 文件中。
+
+### 查看版本号
+
+```bash
+# 命令行版本
+python -m secpdf.core --version
+# 或安装后
+secpdf --version
+
+# GUI版本（版本号显示在窗口标题栏）
+python secpdf_gui.py
+```
+
+### 更新版本号
+
+只需编辑 `secpdf/_version.py` 文件中的 `__version__` 变量即可，所有组件会自动使用新版本号。
+
 ## 界面预览
 
 ![secpdf GUI界面](secpdf_gui.png)
@@ -26,7 +46,21 @@ pip install -r requirements.txt
 ### 1. 命令行版本
 
 ```bash
-python secpdf.py <模式> <输入PDF文件> <输出路径> [密码]
+# 直接运行
+python -m secpdf.core <模式> <输入PDF文件> <输出路径> [密码]
+
+# 或安装后使用
+secpdf <模式> <输入PDF文件> <输出路径> [密码]
+```
+
+#### 查看帮助和版本
+
+```bash
+# 查看帮助
+python -m secpdf.core --help
+
+# 查看版本
+python -m secpdf.core --version
 ```
 
 ### 模式说明
@@ -40,22 +74,22 @@ python secpdf.py <模式> <输入PDF文件> <输出路径> [密码]
 
 #### 模式1：生成加密普通PDF文件
 ```bash
-python secpdf.py encrypt input.pdf output_encrypted.pdf mypassword123
+python -m secpdf.core encrypt input.pdf output_encrypted.pdf mypassword123
 ```
 
 #### 模式2：生成图片
 ```bash
-python secpdf.py images input.pdf output_images
+python -m secpdf.core images input.pdf output_images
 ```
 
 #### 模式3：生成图片内容的PDF
 ```bash
-python secpdf.py image-pdf input.pdf output_image_pdf.pdf
+python -m secpdf.core image-pdf input.pdf output_image_pdf.pdf
 ```
 
 #### 模式4：生成图片内容的PDF加密文件
 ```bash
-python secpdf.py encrypt-image-pdf input.pdf output_encrypted_image_pdf.pdf mypassword123
+python -m secpdf.core encrypt-image-pdf input.pdf output_encrypted_image_pdf.pdf mypassword123
 ```
 
 ### 2. GUI版本
