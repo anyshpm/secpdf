@@ -37,11 +37,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: windows-2022,   platform: windows, arch: x64,   target: amd64 }
-          - { os: windows-2022,   platform: windows, arch: x86,   target: i386 }
-          - { os: ubuntu-24.04,   platform: linux,   arch: x64,   target: amd64 }
-          - { os: macos-15-intel, platform: darwin,  arch: x64,   target: amd64 }
-          - { os: macos-15,       platform: darwin,  arch: arm64, target: arm64 }
+          - { os: windows-2022,     platform: windows, arch: x64,   target: amd64 }
+          - { os: windows-2022,     platform: windows, arch: x86,   target: i386 }
+          - { os: ubuntu-24.04,     platform: linux,   arch: x64,   target: amd64 }
+          - { os: ubuntu-24.04-arm, platform: linux,   arch: arm64, target: arm64 }
+          - { os: macos-15-intel,   platform: darwin,  arch: x64,   target: amd64 }
+          - { os: macos-15,         platform: darwin,  arch: arm64, target: arm64 }
 
     steps:
       - uses: actions/checkout@v4
@@ -102,58 +103,8 @@ jobs:
           name: binaries-${{ matrix.platform }}-${{ matrix.target }}
           path: packages/*
 
-  build_arm_executables:
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        include:
-          - { arch: aarch64, target: arm64, platform_tag: linux/arm64 }
-          - { arch: armv7,   target: armv7, platform_tag: linux/arm/v7 }
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-
-      - name: Build and Smoke Test in Docker
-        run: |
-          VERSION_NUMBER="${GITHUB_REF_NAME#v}"
-          docker run --rm \
-            --platform ${{ matrix.platform_tag }} \
-            -v ${{ github.workspace }}:/workspace \
-            -w /workspace \
-            python:${{ env.PYTHON_VERSION }}-slim \
-            bash -c "
-              set -ex
-              apt-get update
-              apt-get install -y file gcc g++ make python3-tk zlib1g-dev libjpeg-dev libpng-dev
-
-              pip install --no-cache-dir pyinstaller -r requirements.txt
-
-              pyinstaller --onefile --name secpdf secpdf_cli.py
-              pyinstaller --onefile --name secpdf-gui secpdf_gui.py
-
-              ./dist/secpdf --help >/dev/null
-              ./dist/secpdf --version >/dev/null
-
-              mkdir -p packages
-              cp dist/secpdf packages/secpdf_${VERSION_NUMBER}_linux_${{ matrix.target }}
-              cp dist/secpdf-gui packages/secpdf-gui_${VERSION_NUMBER}_linux_${{ matrix.target }}
-
-              for f in packages/*; do
-                INFO=\$(file \"\$f\")
-                echo \"\$INFO\"
-                if [[ '${{ matrix.target }}' == 'arm64' ]]; then echo \"\$INFO\" | grep -Ei 'aarch64|arm64'; fi
-                if [[ '${{ matrix.target }}' == 'armv7' ]]; then echo \"\$INFO\" | grep -Ei 'ARM.*EABI'; fi
-              done
-            "
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: binaries-linux-${{ matrix.target }}
-          path: packages/*
-
   release:
-    needs: [build_wheels, build_executables, build_arm_executables]
+    needs: [build_wheels, build_executables]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
