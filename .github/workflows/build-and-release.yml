@@ -125,7 +125,7 @@ jobs:
             bash -c "
               set -ex
               apt-get update
-              apt-get install -y file gcc g++ make zlib1g-dev libjpeg-dev libpng-dev
+              apt-get install -y file gcc g++ make python3-tk zlib1g-dev libjpeg-dev libpng-dev
 
               pip install --no-cache-dir pyinstaller -r requirements.txt
 
@@ -142,8 +142,8 @@ jobs:
               for f in packages/*; do
                 INFO=\$(file \"\$f\")
                 echo \"\$INFO\"
-                [[ '${{ matrix.target }}' == 'arm64' ]] && echo \"\$INFO\" | grep -Ei 'aarch64|arm64'
-                [[ '${{ matrix.target }}' == 'armv7' ]] && echo \"\$INFO\" | grep -Ei 'ARM.*EABI'
+                if [[ '${{ matrix.target }}' == 'arm64' ]]; then echo \"\$INFO\" | grep -Ei 'aarch64|arm64'; fi
+                if [[ '${{ matrix.target }}' == 'armv7' ]]; then echo \"\$INFO\" | grep -Ei 'ARM.*EABI'; fi
               done
             "
 
