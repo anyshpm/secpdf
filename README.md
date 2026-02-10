@@ -1,144 +1,212 @@
-# secpdf - PDF文件安全处理工具
+<div align="center">
 
-本工具用于PDF文件的安全处理，支持多种处理模式，包括PDF加密、PDF转图片、图片转PDF等功能。提供命令行和GUI两种使用方式。
+# 📄 SecPDF - PDF文件安全处理工具
 
-## 版本管理
+[![GitHub release](https://img.shields.io/github/v/release/anyshpm/secpdf?style=flat-square)](https://github.com/anyshpm/secpdf/releases)
+[![GitHub downloads](https://img.shields.io/github/downloads/anyshpm/secpdf/total?style=flat-square)](https://github.com/anyshpm/secpdf/releases)
+[![License](https://img.shields.io/github/license/anyshpm/secpdf?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.7+-blue?style=flat-square&logo=python)](https://www.python.org/downloads/)
 
-项目使用统一的版本管理方式，版本号定义在 `secpdf/_version.py` 文件中。
+[![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)](https://github.com/anyshpm/secpdf/releases)
+[![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black)](https://github.com/anyshpm/secpdf/releases)
+[![macOS](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/anyshpm/secpdf/releases)
 
-### 查看版本号
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/anyshpm/secpdf/build-and-release.yml?style=flat-square)](https://github.com/anyshpm/secpdf/actions)
 
-```bash
-# 命令行版本
-python -m secpdf.core --version
-# 或安装后
-secpdf --version
+**一款强大的 PDF 安全处理工具，支持加密、转图片、防复制等多种保护模式**
 
-# GUI版本（版本号显示在窗口标题栏）
-python secpdf_gui.py
+[下载最新版本](https://github.com/anyshpm/secpdf/releases) · [查看文档](#使用方法) · [报告问题](https://github.com/anyshpm/secpdf/issues)
+
+</div>
+
+---
+
+## ✨ 功能特点
+
+### 🔒 四种安全处理模式
+
+| 模式 | 功能 | 适用场景 |
+|------|------|----------|
+| 🔐 **加密 PDF** | 为普通 PDF 添加密码保护 | 需要限制访问权限的文档 |
+| 🖼️ **生成图片** | 将 PDF 每页转换为 PNG 图片 | 需要查看格式转换或归档 |
+| 📑 **图片 PDF** | 生成图片内容 PDF（防文字复制） | 防止内容被轻易复制的文档 |
+| 🔒 **加密图片 PDF** | 图片 PDF + 密码（双重保护） | 最高级别安全保护 |
+
+### 🚀 核心优势
+
+- **全内存操作**：所有处理在内存中完成，不产生临时文件
+- **跨平台支持**：Windows、Linux、macOS 全平台覆盖
+- **多种架构**：支持 x64、x86、ARM64、ARMv7 等多种架构
+- **双界面**：提供命令行（CLI）和图形界面（GUI）两种使用方式
+- **绿色免安装**：下载即可使用，无需安装 Python 环境
+
+---
+
+## 📦 下载安装
+
+### Windows 用户
+
+```powershell
+# 1. 从 [Releases](https://github.com/anyshpm/secpdf/releases) 页面下载最新版本
+# 2. 解压到任意目录
+# 3. 双击运行 secpdf-gui.exe 使用图形界面
+# 4. 或在命令行中使用 secpdf.exe
 ```
 
-### 更新版本号
-
-只需编辑 `secpdf/_version.py` 文件中的 `__version__` 变量即可，所有组件会自动使用新版本号。
-
-## 界面预览
-
-![secpdf GUI界面](secpdf_gui.png)
-
-## 功能
-
-- **模式1**：生成加密普通PDF文件
-- **模式2**：生成图片
-- **模式3**：生成图片内容的PDF（防止文字被复制）
-- **模式4**：生成图片内容的PDF加密文件（双重保护）
-- 全内存操作，避免生成中间文件
-- 提供命令行和GUI两种使用方式
-
-## 安装依赖
+### Linux 用户
 
 ```bash
-pip install -r requirements.txt
+# 1. 下载对应架构的可执行文件
+wget https://github.com/anyshpm/secpdf/releases/latest/download/secpdf_<version>_linux_amd64
+
+# 2. 添加执行权限
+chmod +x secpdf_<version>_linux_amd64
+
+# 3. 移动到 PATH 目录（可选）
+sudo mv secpdf_<version>_linux_amd64 /usr/local/bin/secpdf
 ```
 
-## 使用方法
-
-### 1. 命令行版本
+### macOS 用户
 
 ```bash
-# 直接运行
-python -m secpdf.core <模式> <输入PDF文件> <输出路径> [密码]
+# 1. 下载对应架构的可执行文件
+# 2. 添加执行权限
+chmod +x secpdf_<version>_darwin_amd64
 
-# 或安装后使用
-secpdf <模式> <输入PDF文件> <输出路径> [密码]
+# 3. 移动到 PATH 目录（可选）
+sudo mv secpdf_<version>_darwin_amd64 /usr/local/bin/secpdf
 ```
 
-#### 查看帮助和版本
+---
+
+## 📸 界面预览
+
+![secpdf GUI 界面](secpdf_gui.png)
+
+---
+
+## 🎯 使用方法
+
+### 图形界面（GUI）
+
+双击运行 `secpdf-gui.exe`（Windows）或对应的可执行文件
+
+**操作步骤：**
+1. 选择要处理的 PDF 文件
+2. 点击对应的处理模式按钮
+3. 根据提示输入密码（加密模式）或选择输出路径
+4. 等待处理完成
+
+### 命令行界面（CLI）
 
 ```bash
 # 查看帮助
-python -m secpdf.core --help
+secpdf --help
 
 # 查看版本
-python -m secpdf.core --version
+secpdf --version
 ```
 
-### 模式说明
-
-- **encrypt**：生成加密普通PDF文件（需要密码）
-- **images**：生成图片（输出路径为文件夹）
-- **image-pdf**：生成图片内容的PDF（输出路径为PDF文件）
-- **encrypt-image-pdf**：生成图片内容的PDF加密文件（需要密码）
-
-### 示例
-
-#### 模式1：生成加密普通PDF文件
-```bash
-python -m secpdf.core encrypt input.pdf output_encrypted.pdf mypassword123
-```
-
-#### 模式2：生成图片
-```bash
-python -m secpdf.core images input.pdf output_images
-```
-
-#### 模式3：生成图片内容的PDF
-```bash
-python -m secpdf.core image-pdf input.pdf output_image_pdf.pdf
-```
-
-#### 模式4：生成图片内容的PDF加密文件
-```bash
-python -m secpdf.core encrypt-image-pdf input.pdf output_encrypted_image_pdf.pdf mypassword123
-```
-
-### 2. GUI版本
+#### 基本用法
 
 ```bash
-python secpdf_gui.py
+secpdf <模式> <输入PDF> <输出路径> [密码]
 ```
 
-#### GUI操作步骤
+#### 模式示例
 
-1. **选择输入PDF文件**：点击"浏览"按钮选择要处理的PDF文件
-2. **选择处理模式**：点击对应模式的按钮（加密PDF、生成图片、图片PDF、加密图片PDF）
-3. **输入密码（如果需要）**：对于加密模式，会弹出密码输入对话框
-4. **选择输出路径**：根据模式，会弹出文件或文件夹选择对话框
-5. **等待处理完成**：程序会自动执行处理并显示结果
+**1. 加密 PDF 文件**
+```bash
+secpdf encrypt input.pdf encrypted.pdf mypassword
+```
 
-## 工作原理
+**2. PDF 转图片**
+```bash
+secpdf images input.pdf output_images/
+```
 
-### 模式1：加密普通PDF
-1. 读取原始PDF文件
-2. 在内存中对PDF进行加密
-3. 保存加密后的PDF文件
+**3. 生成图片内容 PDF（防复制）**
+```bash
+secpdf image-pdf input.pdf protected.pdf
+```
 
-### 模式2：生成图片
-1. 将PDF文件每页转换为图片对象
-2. 将图片保存到指定文件夹
+**4. 生成加密图片 PDF（双重保护）**
+```bash
+secpdf encrypt-image-pdf input.pdf final.pdf mypassword
+```
 
-### 模式3：生成图片内容的PDF
-1. 将PDF文件每页转换为内存中的图片对象
-2. 在内存中将图片对象合并为PDF字节数据
-3. 保存生成的PDF文件
+---
 
-### 模式4：生成图片内容的PDF加密文件
-1. 将PDF文件每页转换为内存中的图片对象
-2. 在内存中将图片对象合并为PDF字节数据
-3. 在内存中对PDF字节数据进行加密
-4. 保存加密后的PDF文件
+## 🔧 高级功能
 
-## 注意事项
+### Windows 右键菜单集成（TODO）
 
-- **模式2**会在指定文件夹中生成图片文件，其他模式均为全内存操作
-- 转换后的图片内容PDF无法直接复制文字，保护了文档内容
-- 加密后的PDF文件需要密码才能打开
-- 确保输入PDF文件存在且可读
-- 对于大文件，可能会占用较多内存
+计划在 Windows 上可将 secpdf 集成到 PDF 文件的右键菜单中，实现快速处理。
 
-## 依赖库
+---
 
-- PyMuPDF：用于PDF转图片
-- Pillow：用于图片处理
-- pypdf：用于PDF加密
-- tkinter：用于GUI界面（Python内置，无需单独安装）
+## 🛠️ 技术架构
+
+### 处理流程
+
+```
+PDF 输入
+    ↓
+读取到内存
+    ↓
+┌─────────────────┐
+│  处理模式选择    │
+└─────────────────┘
+    ├─→ [加密模式] → 内存加密 → 输出
+    ├─→ [图片模式] → 转换图片 → 输出
+    ├─→ [图片PDF]  → 转图片 → 合并PDF → 输出
+    └─→ [双重保护] → 转图片 → 合并PDF → 加密 → 输出
+```
+
+### 核心技术
+
+- **PyMuPDF (fitz)**：高性能 PDF 解析与渲染
+- **Pillow**：强大的图片处理库
+- **pypdf**：PDF 加密与操作
+- **Tkinter**：跨平台 GUI 框架
+
+---
+
+## 📊 构建状态
+
+| 平台 | 架构 | 状态 |
+|------|------|------|
+| Windows | x64 | ✅ |
+| Windows | x86 | ✅ |
+| Linux | x64 | ✅ |
+| Linux | ARM64 | ✅ |
+| Linux | ARMv7 | ✅ |
+| macOS | Intel (x64) | ✅ |
+| macOS | Apple Silicon (ARM64) | ✅ |
+
+---
+
+## ⚠️ 注意事项
+
+- **内存占用**：大文件处理会占用较多内存，建议在内存充足的设备上使用
+- **文件格式**：仅支持标准 PDF 格式文件
+- **密码安全**：请妥善保管设置的密码，遗忘将无法找回
+- **文字选择**：图片 PDF 模式下的文档无法直接复制文字内容
+
+---
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📄 开源协议
+
+本项目采用 [MIT License](LICENSE) 开源协议
+
+---
+
+<div align="center">
+
+**如果这个项目对你有帮助，请给它一个 ⭐️ Star**
+
+</div>
