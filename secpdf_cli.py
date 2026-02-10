@@ -1,5 +1,13 @@
 import argparse
 import sys
+import io
+import os
+
+# 设置标准输出编码为 UTF-8（Windows 兼容）
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 from secpdf.core import PDFSecurityTool
 from secpdf._version import __version__
 
